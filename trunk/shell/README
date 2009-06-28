@@ -1,0 +1,275 @@
+Prereq:
+
+Java 1.5 is needed.
+    This seems necessary by the bugtraq jars that I am using.
+If JAVA_HOME is not set to a 1.5 java then you might get an error like
+"java.lang.NoSuchFieldError: INITIAL_COLOR"
+
+Basic Interaction.
+==================
+Run 'zbug' afer cd-ing into that directory. it should give you a '|' prompt immediatly.
+(From now on, a line starting with '|' is zbug interaction. and with '>' as system response)
+
+Authentication:
+--------------
+If you have a file by the name ".bugster" in your home directory that contains the encrypted
+password (usually created by 
+    $bt-cli encrypt password -U <sunid> -P ~/.bugster
+And you are in solaris or linux, logged in as your ldap id, then authentication is performed
+automatically for you. If not (or you want to login with a different id.), enter '*login'
+at the zbug prompt
+
+    |*login
+        user: <sunid>                                            eg: rn151090>
+        password: *********                                      your ldap pasword
+    >Added SSL_PROVIDER com.sun.net.ssl.internal.ssl.Provider     # response indicating
+    >SSO:O-61S66H-90I-86E57S.....                                 # successful login (token)
+
+Autocompletion and History
+--------------------------
+You can autocomplete most commands and options through typing the first few letters and tabbing 
+The cursor keys for up, down, left and right work correctly.
+Your history of session is saved under ~/.zbug_history.
+An initialization file that contains the most used commands can be specified as ~/.zbugrc
+My ~/.zbugrc contains
+[
+category -in utility |subcategory -in squid    } squid
+category -in utility |subcategory -in apache   } apache
+responsibleengineer -eq me.myemail@sun.com } allmybugs
+responsibleengineer -eq me.myemail@sun.com | status -notin 11,10 } mybugs
+]
+
+Bug:
+tabbing in pipelines only work when the command is at the beginning of the line or
+it is preceded by a '|' with no space in between.
+for e.g If I try to tab after 'category -in utility | sub<tab>'
+the autocompletion will not work. But will work if I tab 'category -in utility |sub<tab>'
+(Note the absence of space after '|')
+
+Syntax
+------
+As you can see the syntax is reminiscent of the bash and other shells with pipelines.
+commands are employed in a series of pipes, each adding condition to the previous comand
+and on pressing <enter> executed.
+
+for e.g (press enter after the line is completed)
+to get all the bugs assigned to me, I can write,
+
+    | responsibleengineer -eq me.myemail@sun.com
+    >6609048 Apache 2.2.x rejects Solaris LDAP
+    >6613260 Integration CR for squid into OpenSolaris
+
+To restrict it to just open bugs, I add another pipe
+    | responsibleengineer -eq me.myemail@sun.com |status -notin 11,10
+    >...
+
+To restrict it to just high priority ones
+    | responsibleengineer -eq me.myemail@sun.com |status -notin 11,10 |priority -in 1,2
+    >...
+
+Say, I want to reuse this as a starting point for other queries, I define my new command as below
+    | responsibleengineer -eq me.myemail@sun.com |status -notin 11,10 |priority 1,2 } mybigbugs
+
+Now, mybigbugs can be used the same way as any other command.
+
+    | mybigbugs
+    > ...
+
+And use other filters on it,
+    | mybigbugs |category -in utility |subcategory -in squid
+    > ...
+
+You can inspect the contents of a command at any time using '*src' command
+
+    | *src mybigbugs 
+    responsibleengineer -eq me.myemail@sun.com |status -notin 11,10 |priority -in 1,2 
+
+Meta Commands
+-------------
+help
+    Use 'help' or 'help <command>' to get a short summary
+*last
+    You can use *last to use the result of last command that went into bugster. beware that it is 
+    the full xml output. you will need to use *show to get it in a plesent format which internally
+    uses *last. (*last is another debug command)
+
+    e.g
+    | *last
+    ><?xml version = '1.0' encoding = 'iso-8859-1'?><QueryChangeRequest><ChangeRequest><CrNumber>6680026<...
+
+    | *show -responsibleengineer -status -priority 
+    >6680026 me.myemail@sun.com    3-Accepted      2-High
+
+*show
+    As seen above. And you can also use *show directly on a pipeline
+    | responsibleengineer -eq me.myemail@sun.com | status -notin 11,10 | priority -in 1,2 |*show -responsibleengineer -status -priority 
+    6680026 me.myemail@sun.com    3-Accepted      2-High
+
+*print
+    Prints the entire contents of the cr.
+    | *for <crid> | *print
+
+*write
+    persists the results to a file
+    | *show -crnumber -responsibleengineer  |*write me
+    >done.
+
+    $cat me
+    6680026 rahu.g.nair@sun.com
+
+*cat
+    cat the output of a file (usually used with show)
+    i.e
+    | responsibleengineer -eq me.myemail@sun.com |*write allbugs
+    | cat allbugs |*show -crnumber -status
+    
+*limit
+    to be used with the output of *show
+    filters the output through a supplied regex, and shows only matching (or -nomatch)
+    | *show -crnumber -responsibleengineer  |*limit rahul
+
+*like <crid>
+    set the default values for bug creation to the values in <crid>
+
+?
+    It is a debug statement, and lets you see the query being built up 
+    e.g
+    
+    | responsibleengineer -eq me.myemail@sun.com |status -notin 11,10 |priority -in 1,2 | ?                                           
+    ><ResponsibleEngineer><EqualTo>me.myemail@sun.com</EqualTo></ResponsibleEngineer>
+    ><Status><NotIn><Value>11-Closed</Value><Value>10-Fix Delivered</Value></NotIn></Status>
+    ><Priority><In><Value>1-Very High</Value><Value>2-High</Value></In></Priority>
+
+?category
+   *for webstack solaris |?category -initialevaluator me
+
+Updates
+-------------------
+    | *for 6786590 |*set -status 1
+    | *changes
+    >6786590:        [Status: 1-Dispatched ] 
+
+    | *rollback
+    >
+    | *changes
+    > err: no changes
+
+    | *for 6786590 |*set -status 1
+    | *for 6789761 6786569 |*set -status 3
+    | *changes
+    >6786590:        [Status: 1-Dispatched ] 
+    >6789761:        [Status: 3-Accepted ] 
+    >6786569:        [Status: 3-Accepted ] 
+    
+    | *commit
+    > ...
+    > committed 3 changes
+    | *changes
+    > err: no changes
+
+    | *for 6786590 |*add -keys test,abc
+    | *for 6786590 |*add -interestlist me.myemail@sun.com
+    | *for 6786100 |*rm -keys test,abc
+
+Creates
+----------
+    | *create -description "provide squid 3.0" -area Defect -product solaris -category utility
+        -subcategory squid -impact limited -functionality secondary -priority 4
+        -synopsis "provide squid 3.0" -release  solaris_nevada
+        -email me.myemail@sun.com -operatingsystem solaris_nevada
+    | *commit
+    cr <id> created
+    | *like 6786100
+    >template values set.
+    | *like
+    > shows the values.
+    | *create -synopsis "my new bug" -description "my new bug about to be created."
+    | *changes 
+    > shows the changes.
+    | *commit
+    cr <id> created.
+    (Notice that the options that were used were from the original bug used in *like.)
+
+
+Macros
+---------
+You can define simple macros using echo
+    | *echo me.myemail@sun.com } me
+    | responsibleengineer -eq $me |submittedby -noteq $me
+
+    | *echo {{COM {{NOW
+    1 2 3 
+    4 5 6 
+    7 8 9
+    COM
+    a b c
+    d e f
+    NOW
+    1 2 3 
+    4 5 6 
+    7 8 9
+     a b c
+    d e f
+     
+    | echo $COM
+    error: Not a command[echo]
+    | *echo $COM
+    1 2 3 
+    4 5 6 
+    7 8 9
+     
+    | *echo $NOW
+    a b c
+    d e f
+
+
+EDIT
+    you can edit the pipeline by inserting *edit
+    (the VISUAL environment variable has to be set to the absolute
+    path of your graphical editor, and you have to make sure that the
+    editor will not fork to background. - use 'gvim -f' for gvim. 
+    Unfortunately console editors like vi will not work because of java)
+    - to edit and modify *last
+    | *last |*edit |*last
+
+Files
+-----------
+    You can supply files with he below syntax.
+    *for {/path/to/file |*write newfile
+
+    Or a heredoc
+    *for {{END |*write newfile
+    EndsWith: END
+    xxx yyy
+    zzz
+    END
+
+
+All Commands
+-----------
+*add *cat *changes *commit *echo *edit *exec *for *help *last *limit *login
+*ls *print *query *rm *rollback *set *show *sort *src *version *write ?
+activity.activityid area category committofixinbuild crnumber duplicateof
+engnote.createdby engnote.createddate engnote.modifiedby engnote.modifieddate engnote.type
+escalation.customeradvocate escalation.escalationdate escalation.escalationengineer
+escalation.escalationnumber escalation.escalationstatus escalation.managementalert
+fixaffectsdocumentation fixaffectslocalization fixedinbuild
+help
+hook1 hook2 hook3 hook4 hook5 hook6
+initialevaluator integratedinbuild interestlist introducedinbuild introducedinrelease
+keywords ls makepublic modifieddate mrnumber
+priority product programmanagement relatedchangerequest.crnumber release
+reportedby responsibleengineer responsiblemanager rootcause
+servicerequest.srnumber solution.solutionid
+status subarea subcategory submittedby submitteddate substatus synopsis verifiedinbuild
+
+Common Options
+--------------
+    -eq         -lt         -gt         -like       -in         -notin
+    -between    -noteq      -notlike    -empty      -notempty   -gteq
+    -lteq
+
+Options containing spaces may be privided by using quotes as in "this is an option"
+Multiple options for -in, -notin, -between may be specified using commas as in -notin 1,2,3
+
+

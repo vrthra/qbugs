@@ -1,0 +1,7 @@
+#!/bin/sh
+for file in `find ${cdir}/deps -name '*.jar'`; do
+    cpath=${cpath}':'${file}
+done
+
+$JAVA_HOME/bin/java -classpath ${cpath} zbug.ZBug "$@"
+

@@ -1,0 +1,40 @@
+v 0.08
+	Added colors and +color
+	Added #color and #nocolor
+	Made *edit more friendly
+	Added *edit out for *like
+v 0.07
+	Added completion to user-defined function arguments
+	Fixed tab-complete for files 
+	Added #wait
+v 0.06
+	Added user-defined function arguments
+v 0.05
+	Added *more
+	Added heredoc {{ and {file syntax
+	Added autocompletion for files.
+	Added cr numbering and *brief
+v 0.04
+	Split source
+	updated print to return to the stream.
+	added *like
+v 0.03
+	added *edit for editing pipelines
+	Auth client now loads in a thread.
+	added *add for comments, descriptions, evaluations etc
+	added *rm for keywords, interestlists, seealso etc.
+	chaged the option completor to get options from command class.
+	changed update xml to show formated
+v 0.02
+	Added cat
+	intelligent write, and show (takes *last output if necessary)
+	Added limit (limit by regex)
+	Added echo - used for defining macros ($name)
+	Added sort
+	Added for
+	Added set, commit, rollback, changes
+v 0.01
+	Autocomplete
+	History
+	basic commands
+
