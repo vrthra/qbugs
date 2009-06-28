@@ -1,0 +1,19 @@
+*echo [%crnumber% %status% %priority% (%engineer%) %$%: %synopsis% ] } %show_format%
++color -responsibleengineer rahul -color red -field %engineer%
++color -priority '[1-2]' -color yellow
++color -subcategory '(squid|apache)' -color blue -field %crnumber%
+
+*echo [category -in utility ] } solaris
+*echo [subcategory -in squid] } squid
+*echo [subcategory -in apache] } apache
+*echo [category -in web_stack] } webstack
+*echo [keyword -in uc2] } uc2
+*echo [status -notin 2,10,11] } open
+*echo [priority -notin 4,5] } high
+*echo [priority -notin 3,4,5] } veryhigh
+*echo [responsibleengineer -eq $email] } mine
+*echo [release -eq 1.5] } tofix
+
+*echo [webstack |subcategory -in $subcat |open ] } show -subcat
+*echo [*set -status 10 -substatus 7 -committofixinbuild $build -fixedinbuild $build -integratedinbuild $build ] } fix -build
+

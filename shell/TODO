@@ -1,0 +1,8 @@
+Add ?priorities ?products ?categories ?subcategories to list them.
+
+provide arguments for macros and make recursive invocation possible (thus making them functions.)
+
+return a list of linked map instead of String in invoke, so that it can be used as a true pipeline.
+
+provide multiple streams and redirects.
+
