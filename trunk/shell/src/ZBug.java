@@ -10,7 +10,7 @@ import org.w3c.dom.*;
 enum Action { T_QUERY, T_SHOW, T_Q_RESULT_XML, T_PRINT, T_UPDATE, T_LINES, T_NONE };
 
 public class ZBug {
-    static final String version = "version 0.08"; // - bugs to rahul@sun.com;
+    static final String version = "version 0.08";
     public static boolean _debug = false;
     static boolean shownum = true;
     static String sep = "\t";
@@ -454,20 +454,14 @@ public class ZBug {
                         StringBuffer sb = new StringBuffer();
                         History h = reader.getHistory();
                         reader.setHistory(new History());
-                        //stty("echo");
-                        //stty("erase");
                         while(true) {
-                            //String us = reader.readLine('\0');
                             String us = reader.readLine();
                             if (us.equals(value)) break;
                             sb.append(us);
                             sb.append("\n");
-                            //out.println(us);
                         }
                         // set the variable
                         set_var(value, sb.toString()); 
-                        //stty("-erase");
-                        //stty("-echo");
                         reader.setHistory(h);
                         value = sb.toString();
                     } catch (Exception e) {
