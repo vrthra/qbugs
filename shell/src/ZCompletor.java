@@ -64,7 +64,7 @@ class OptionCompletor implements jline.Completor {
             _dbg = new BufferedWriter(new FileWriter("/tmp/zbug.dbg", true));
             dbg("----------------------------------init\n");
         } catch (Exception e) {
-            ZBug.err(e);
+            Zx.err(e);
         }
     }
 
@@ -137,7 +137,7 @@ class OptionCompletor implements jline.Completor {
                     dbg("[<" + cursor + ">]");
             at(cursor);
         } catch (Exception e){
-            ZBug.err(e);
+            Zx.err(e);
         }
         return clist.size () == 0 ? -1 : 0;
     }
@@ -229,7 +229,7 @@ class OptionCompletor implements jline.Completor {
                     }
             }
         } catch (Exception e){
-            ZBug.err(e);
+            Zx.err(e);
         }
         return clist.size () == 0 ? -1 : 0;
     }

@@ -25,7 +25,7 @@ public class Xq {
         try {
             return (NodeList) xpath.evaluate(path, inputSource, XPathConstants.NODESET);
         } catch (Exception e) {
-            ZBug.err(e);
+            Zx.err(e);
             throw new Zx("Xq:qnodes:" +e.getMessage());
         }
     }
@@ -40,7 +40,7 @@ public class Xq {
         NodeList l = nl.getChildNodes();
         for(int i = 0; i < l.getLength();++i) {
             Node n = l.item(i);
-            if (n.getNodeName().equalsIgnoreCase(s)) return encode(n.getFirstChild().getNodeValue());
+            if (n.getNodeName().equalsIgnoreCase(s)) return decode(n.getFirstChild().getNodeValue()); //encode?
         }
         return "";
     }

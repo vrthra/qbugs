@@ -3,73 +3,28 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.*;
 import jline.*;
-import com.sun.sunit.bugtraq.client.cli.*;
-import com.sun.sunit.bugtraq.client.sample.*;
-import com.sun.sunit.bugtraq.client.common.*;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.*;
 import org.w3c.dom.*;
-import com.sun.sunit.webservice.soap.SOAPServiceMessage;
 
-enum T_Lex {T_PIPE, T_STRING, T_SYM, T_RBRACE, T_LBRACE}
-
-class Lex {
-    T_Lex lex_type;
-    int sym;
-    String sval;
-    int ival;
-    Lex(T_Lex t) {lex_type = t;}
-    Lex(T_Lex t, int s) {lex_type = t; sym = s;}
-    String value() {
-        if (lex_type == T_Lex.T_SYM) return ZBug.rsym(sym);
-        if (lex_type == T_Lex.T_STRING) return  ZBug.rsym(sym);
-        return sym + "";
-    }
-
-    String stype() {
-        switch (lex_type) {
-            case T_PIPE: return "<pipe>";
-            case T_STRING: return "<string>";
-            case T_SYM: return "<sym>";
-            case T_RBRACE: return "<rbrace>";
-            case T_LBRACE: return "<lbrace>";
-            default: return "<unknown>";
-        }
-    }
-    String xv() {
-        return stype() + "(" + value() + ")" ;
-    }
-}
-
-class Zx extends RuntimeException { public Zx(String s) { super(s); } }
-
-class Ll {
-    Lex l;
-    Ll next;
-    Ll last;
-    Ll first;
-    Ll() {
-    }
-    void add(Lex l) {
-        Ll n = new Ll();
-        n.l = l;
-        if (last == null) {
-            last = n;
-            first = n;
-        } else {
-            last.next = n;
-            last = n;
-        }
-    }
-}
+enum Action { T_QUERY, T_SHOW, T_Q_RESULT_XML, T_PRINT, T_UPDATE, T_LINES, T_NONE };
 
 public class ZBug {
-    static final String version = "version 0.08";
-    static boolean _debug = false;
+    static final String version = "version 0.08"; // - bugs to rahul@sun.com;
+    public static boolean _debug = false;
     static boolean shownum = true;
     static String sep = "\t";
     static boolean fullopt = false;
     static boolean showcolor = true;
+
+    public static String user = null;
+    public static String enc = null;
+    public static String home = null;
+    public static String email = null;
+    public static String token = null;
+    public static String pfile = null;
+
+
     void lex_debug(String s) {}
     void p_debug(String s) {
         //System.out.println("debug:" + s);
@@ -78,7 +33,16 @@ public class ZBug {
     public static String[] cmdnames() {
         return _cmdnames;
     }
+    static Stack<String> _prompts = new Stack<String>();
     static String prompt = "| ";
+    public static void push_prompt(String p) {
+        _prompts.push(prompt);
+        prompt = p;
+    }
+    public static void pop_prompt() {
+        prompt = _prompts.peek();
+        _prompts.pop();
+    }
     static Vector<String> newcmds = new Vector<String>();
     static String _lstText = "";
     static Vector<String> _lines = new Vector<String>();
@@ -483,7 +447,7 @@ public class ZBug {
                     if (value.startsWith("~")) {
                         value = home + value.substring(1);
                     }
-                    value = read_file(value);
+                    value = ZUtil.read_file(value);
                     break;
                 case 2:
                     try {
@@ -507,7 +471,7 @@ public class ZBug {
                         reader.setHistory(h);
                         value = sb.toString();
                     } catch (Exception e) {
-                        err(e);//ignore
+                        Zx.err(e);//ignore
                     }
                     break; // heredoc
             }
@@ -537,7 +501,7 @@ public class ZBug {
                 temp = ib.readLine();
             }
         } catch (Exception e) {
-            err(e);
+            Zx.err(e);
             throw new Zx("readstream:" + e.getMessage());
         }
         return sb.toString();
@@ -599,7 +563,7 @@ public class ZBug {
             History hist = new History(histFile);
             reader.setHistory(hist);
         } catch (Exception e) {
-            err(e);
+            Zx.err(e);
             throw new Zx("readline:" + e.getMessage());
         }
     }
@@ -608,7 +572,7 @@ public class ZBug {
         String name = write_temp_file(content);
         try {
             if(editor(name) == 0) {
-                return read_file(name);
+                return ZUtil.read_file(name);
             } else return null;
         } finally {
             (new File(name)).delete();
@@ -629,7 +593,7 @@ public class ZBug {
             }
             return Runtime.getRuntime().exec(editor + " " + file).waitFor();
         } catch (Exception e) {
-            err(e);
+            Zx.err(e);
             throw new Zx("exec:" + e.getMessage());
         }
     }
@@ -644,50 +608,12 @@ public class ZBug {
             out.close();
             return tmp.getCanonicalPath();
         } catch (Exception e) {
-            err(e);
+            Zx.err(e);
             throw new Zx("writetempfile:" + " " + e.getMessage());
         }
     }
 
-    static int write_file(String name, String content) {
-        try {
-            BufferedWriter out = new BufferedWriter(new FileWriter(name));
-            out.write(content);
-            out.close();
-        } catch (Exception e) {
-            err(e);
-            throw new Zx("writefile:" + name + " " + e.getMessage());
-        }
-        return content.length();
-    }
-
-    static String read_file(String f) {
-        StringBuffer sb = new StringBuffer();
-        try {
-            File fi = new File(f.trim());
-            if (fi.isDirectory()) {
-                String[] entries = fi.list();
-                for (String e : entries) {
-                    sb.append(e + "\n");
-                }
-            } else {
-                BufferedReader ib = new BufferedReader(new InputStreamReader(new FileInputStream(fi)));
-                while(true) {
-                    String st = ib.readLine();
-                    if (st ==null) break;
-                    if (st.startsWith("#")) continue;
-                    sb.append(st);
-                    sb.append("\n");
-                }
-            }
-        } catch (Exception e) {
-            err(e);
-            throw new Zx("readfile:" + e.getMessage());
-        }
-        return sb.toString();
-    }
-
-    static void set_var(final String key,final  String val) {
+    public static void set_var(final String key,final  String val) {
         ZHolder var =  new ZHolder() {
             public String name() {return key;}
             public String tag() {return key;}
@@ -707,144 +633,82 @@ public class ZBug {
         newcmds.add(key);
     }
 
-
-    static AuthenticationClient ac = null;
-    static AuthenticationClient ac() {
-        try {
-            auth_thread.join();
-            return ac;
-        } catch (Exception e) {
-            err(e);
-            throw new Zx("auth:" + e.getMessage());
-        }
-    }
-
-    static String login(String user, String pass, boolean enc) {
-        try {
-            ac.setUserID(user);
-            ac.setPassword(pass);
-            ac.setEncrypted(enc);
-            ByteArrayOutputStream xmlout = new ByteArrayOutputStream();
-
-            ByteArrayOutputStream tmp = new ByteArrayOutputStream();
-            PrintStream ps = new PrintStream(tmp);
-            System.setOut(ps);
-            SOAPServiceMessage msg = ac.doProcess(false);
-            msg.getMessage().writeTo(xmlout);
-            String str = xmlout.toString();
-            Pattern r =  Pattern.compile("<Email>(.*)</Email>");
-            Matcher m = r.matcher(str);
-            if (m.find()) {
-                email = m.group(1);
-            } else {
-                throw new Zx("unable to login.");
-            }
-            token = ac.getToken();
-            ZBug.set_var("email", ZBug.email);
-            return token;
-        } catch (Exception e) {
-            err(e);
-            throw new Zx("login:" + e.getMessage());
-        } finally {
-            System.setOut(out);
-        }
-    }
-
-    static Thread auth_thread = null;
-    static String pfile = null;
-    static String user = null;
-    static String enc = null;
-    static String home = null;
-    static String email = null;
-    static String token = null;
-    static void init_auth() {
-        try {
-            auth_thread = new Thread() {
-                public void run() {
-                    String s = ZBug.prompt;
-                    ZBug.prompt = "* ";
-                    try {
-                        Thread.yield();
-                        ac = new AuthenticationClient();
-                        token = login(user, read_file(pfile).trim(), true);
-                        ZBug.prompt = s;
-                    } catch (Exception e) {
-                        System.out.println("auth:" + e.getMessage());
-                        System.out.println("use *login or *savepwd");
-                    }
-                }
-            };
-            auth_thread.start();
-        } catch (Exception e) {
-            System.out.println("auth:" + e.getMessage());
-        }
-    }
-
-    static InputArgs ia = null ;
     static String[] split_lines(String s) {
         return s.split("\n");
     }
     public static PrintStream out = System.out;
     public static Queue<String> statement_queue = new LinkedList<String>();
-    static String queue_saved_prompt = null;
 
-    static void doit() {
-        try {
-            EncryptionClient ec = new EncryptionClient();
-            ByteArrayOutputStream xmlout = new ByteArrayOutputStream();
-            SOAPServiceMessage msg = ec.doProcess(true);
-            msg.getMessage().writeTo(xmlout);
-            String str = xmlout.toString();
-            Pattern r =  Pattern.compile("<TextEncryptionService:Text>(.*)</TextEncryptionService:Text>");
-            Matcher m = r.matcher(str);
-            if (m.find()) {
-               String enc = m.group(1);
-                System.out.println(enc);
-            } else {
-                throw new Zx("unable to login.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    static void eval_pre(String statement) {
+        if (statement.equals("#?")) {
+            ZBug.out("#debug #nodebug #crnum #fullopt #shortopt #nocrnum #color #nocolor #sep #prompt #wait");
+        } if (statement.equals("#debug")) {
+            _debug = true;
+        } else if (statement.equals("#nodebug")) {
+            _debug = false;
+        } else if (statement.equals("#crnum")) {
+            shownum= true;
+        } else if (statement.equals("#fullopt")) {
+            fullopt= true;
+        } else if (statement.equals("#shortopt")) {
+            fullopt= false;
+        } else if (statement.equals("#nocrnum")) {
+            shownum= false;
+        } else if (statement.equals("#color")) {
+            showcolor= true;
+            ZBug.out(Colors.allcolors());
+        } else if (statement.equals("#nocolor")) {
+            showcolor= false;
+        } else if (statement.startsWith("#sep")) {
+            sep= statement.substring(0, statement.indexOf(' ')+1);
+        } else if (statement.startsWith("#promp")) {
+            prompt= statement.substring(statement.indexOf(' ')+1);
+        } else if (statement.startsWith("#wait")) {
+            zbug.bugster.Auth.ac();
         }
     }
 
     public static void main(String[] args) {
         System.out.println(version);
         System.out.flush();
-        String[] Args = null;
+        String[] newargs = null;
         user = System.getenv("LOGNAME");
         home = System.getenv("HOME");
         String debug = System.getenv("ZDEBUG");
         if (debug != null && debug.length() > 0) {
             _debug = true;
-            Args = new String[] {"-U","me","-pFile","just_pass_this_to_make_the_thing_happy", "-rawxml", "-debug"};
+            newargs = new String[] {"-U","me","-pFile","just_pass_this_to_make_the_thing_happy", "-rawxml", "-debug"};
         } else {
-            Args = new String[] {"-U","me","-pFile","just_pass_this_to_make_the_thing_happy", "-rawxml"};
+            newargs = new String[] {"-U","me","-pFile","just_pass_this_to_make_the_thing_happy", "-rawxml"};
         }
         if (args.length == 0) {
             pfile = home +"/.bugster";
-            Args[1] = user;
-            Args[3] = pfile;
-            ia = new InputArgs(Args);
+            newargs[1] = user;
+            newargs[3] = pfile;
+            zbug.bugster.Auth.init_args(newargs);
         } else {
-            ia = new InputArgs(args);
+            zbug.bugster.Auth.init_args(args);
         }
-        init_auth();
+        zbug.bugster.Auth.init_auth(user, pfile);
         ZBug zb = new ZBug();
         ZLib zl = new ZLib();
         zl.init(cmd_libs);
         init_jline();
         String rc = home +"/.zbugrc";
         File frc = new File(rc);
-        if (frc.exists()) for (String s : split_lines(read_file(rc))) {
-            String st = zb.eval(s, null);
-            if (st!= null && st.length() >0) out(st);
+        if (frc.exists()) for (String s : split_lines(ZUtil.read_file(rc))) {
+            if (s.startsWith("#"))
+                eval_pre(s);
+            else {
+                String st = zb.eval(s, null);
+                if (st!= null && st.length() >0) out(st);
+            }
         }
         if (args.length > 4) {
             String n = args[4];
             File f = new File(n);
             if (f.exists())
-                for (String s : split_lines(read_file(n))) {
+                for (String s : split_lines(ZUtil.read_file(n))) {
                     String st = zb.eval(s, null);
                     if (st != null && st.length() >0) out(st);
                 }
@@ -859,35 +723,9 @@ public class ZBug {
                 if (_more) {
                     show_more(statement);
                 } else if (statement.startsWith("#") ) {
-                    if (statement.equals("#?")) {
-                        ZBug.out("#debug #nodebug #crnum #fullopt #shortopt #nocrnum #color #nocolor #sep #prompt #wait");
-                    } if (statement.equals("#debug")) {
-                        _debug = true;
-                    } else if (statement.equals("#nodebug")) {
-                        _debug = false;
-                    } else if (statement.equals("#crnum")) {
-                        shownum= true;
-                    } else if (statement.equals("#fullopt")) {
-                        fullopt= true;
-                    } else if (statement.equals("#shortopt")) {
-                        fullopt= false;
-                    } else if (statement.equals("#nocrnum")) {
-                        shownum= false;
-                    } else if (statement.equals("#color")) {
-                        showcolor= true;
-                        ZBug.out(Colors.allcolors());
-                    } else if (statement.equals("#nocolor")) {
-                        showcolor= false;
-                    } else if (statement.startsWith("#sep")) {
-                        sep= statement.substring(0, statement.indexOf(' ')+1);
-                    } else if (statement.startsWith("#promp")) {
-                        prompt= statement.substring(statement.indexOf(' ')+1);
-                    } else if (statement.startsWith("#wait")) {
-                        ac();
-                    }
+                    eval_pre(statement);
                 } else if (statement.endsWith("|")) {
-                    queue_saved_prompt = "|";
-                    prompt = "+\t";
+                    push_prompt("+\t");
                     statement_queue.offer(statement);
                 } else if (statement.endsWith("#")){
                     // do nothing
@@ -898,23 +736,15 @@ public class ZBug {
                         sb.append(statement_queue.remove());
                     }
                     sb.append(statement);
-                    if (queue_saved_prompt != null) {
-                        prompt = queue_saved_prompt;
-                        queue_saved_prompt = null;
+                    if (prompt.equals("+\t")) {
+                        pop_prompt();
                     }
                     out(zb.eval(sb.toString(), null));
                 }
             } catch (Exception e) {
-                err(e);
+                Zx.err(e);
                 System.out.println("zbug:" + e.getMessage());
             }
-        }
-    }
-
-    public static void err(Exception e) {
-        if (_debug) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
         }
     }
 
